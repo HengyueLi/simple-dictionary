@@ -9,11 +9,17 @@
 # Author:  hengyueli@gamil.com
 #──────────────────────────
 #  update:
+#       2022.01.17
 #       2022.01.07  rebuild from the old script
 #──────────────────────────
 # used:
-import os,argparse,logging,sys,inspect
+import os
+import sys
+import inspect
+import argparse
+import logging
 import requests
+import configparser
 #
 import bs4
 import html2text
@@ -23,30 +29,6 @@ from rich.columns import Columns
 from rich.panel import Panel
 import rich
 #──────────────────────────
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-#                      start configuration
-#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-# default translation direction, try the input language in DEFAULT_LANG_IN and output is  DEFAULT_LANG_OUT
-DEFAULT_LANG_IN = 'en'
-DEFAULT_LANG_OUT = 'zh'
-
-
-# According to the derected (or input) language, a more preferd translation is used.
-# The key and the value are correcsponding to the input and output language
-# For example:
-#    if the input is detected as 'en', personaly I would like to translate it into 'zh-cn'.
-#    Likewise, when the input is 'zh-cn', I like to translate it into 'en'.
-#    In this case, the configuration should be
-#    PREFER_TRANS_DIRECTION = { "en":"zh-cn", "zh-cn":"en"  }
-# This has higher priority to DEFAULT_LANG_OUT, but lower than the args input.
-PREFER_TRANS_DIRECTION = {
-    "en":'zh',
-    'zh':'en',
-}
-
-#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-#                      end configuration
-#<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 #══════════════════════════════════════════════════════════════════════════════════════════════════════════════════
 
 
@@ -59,6 +41,74 @@ PREFER_TRANS_DIRECTION = {
 
 
 
+
+
+
+class config():
+
+    @staticmethod
+    def getConfigFileName():
+        return 'sd_config.ini'
+
+    @staticmethod
+    def getConfigFileLocationDir():
+        return os.path.join(os.path.expanduser('~'), '.config' )
+
+    @staticmethod
+    def default_configuration():
+        return {
+            'DEFAULT_LAN':{
+                #  default translation direction, try the input language in DEFAULT_LANG_IN and output is  DEFAULT_LANG_OUT
+                'DEFAULT_LANG_IN':'en',
+                'DEFAULT_LANG_OUT':'zh',
+            },
+            "PREFER_TRANS_DIRECTION":{
+                # According to the detected (or input) language, a more preferd translation is used.
+                # The key and the value are correcsponding to the input and output language
+                # For example:
+                #    if the input is detected as 'en', personaly I would like to translate it into 'zh'.
+                #    Likewise, when the input is 'zh', I like to translate it into 'en'.
+                #    In this case, the configuration should be
+                #    PREFER_TRANS_DIRECTION = { "en":"zh", "zh":"en"  }
+                # This has higher priority to DEFAULT_LANG_OUT, but lower than the args input.
+                "en":'zh',
+                'zh':'en',
+            },
+        }
+
+    @classmethod
+    def getConfigFilePath(cls):
+        return os.path.join( cls.getConfigFileLocationDir() ,  cls.getConfigFileName()  )
+
+    @classmethod
+    def getConfigDict(cls):
+        configFile = cls.getConfigFilePath()
+        if not os.path.exists(configFile):
+            logging.debug("no config file, use default settings")
+            r= cls.default_configuration()
+        else:
+            logging.debug("use config file: {}".format(configFile))
+            parser = configparser.ConfigParser()
+            parser.optionxform = str
+            parser.read(configFile)
+            r= {s:dict(parser.items(s)) for s in parser.sections()}
+        logging.debug("configuration = {}".format(str(r)))
+        return r
+
+    @classmethod
+    def setConfigDict(cls,Dict):
+        configDir = cls.getConfigFileLocationDir()
+        configFile = cls.getConfigFilePath()
+        if not os.path.exists(configDir):
+            os.makedirs(configDir)
+        parser = configparser.ConfigParser()
+        parser.optionxform = str
+        for section in Dict:
+            parser.add_section(section)
+            for k in Dict[section]:
+                parser.set(section, k, Dict[section][k] )
+        with open(configFile, 'w') as f:
+            parser.write(f)
 
 
 
@@ -333,6 +383,48 @@ class DICTIONARY_EnglishToChinese2(HuJiang_online):
 
 
 
+class DICTIONARY_EnglishToJapanese1(online_dictionary):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "ejje.weblio E2J"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['en','ja']
+
+    @staticmethod
+    def makeURL(word)->str:
+        return "https://ejje.weblio.jp/content/{}".format(word)
+
+    @staticmethod
+    def IsExists(soup):
+        return len(soup.select('div.summaryM.descriptionWrp')) >0
+
+
+    @staticmethod
+    def getHTMLfromSoup_translation(soup)->str:
+        return str(  soup.select('div.summaryM.descriptionWrp')[0] )
+
+    @staticmethod
+    def getHTMLfromSoup_suggestion(soup)->str:
+        suggestion = soup.find('div',{'class':'spellCheck'})
+
+        return str(suggestion)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 # class languageDetection_langdetect():
 #
@@ -387,6 +479,9 @@ class languageDetection():
         logging.debug("can not find language '{}' in table631".format(language))
         return "??"
 
+    # more api
+    #  https://languagetool.org/
+
 
     def detect(self,word):
         try:
@@ -400,19 +495,32 @@ class languageDetection():
 
 
 
-
+# config.getConfigDict()[]
 
 class selectDictionary():
 
-    DEFAULT_LANG_IN = DEFAULT_LANG_IN
-    DEFAULT_LANG_OUT = DEFAULT_LANG_OUT
-    PREFER_TRANS_DIRECTION = PREFER_TRANS_DIRECTION
+    # DEFAULT_LANG_IN = DEFAULT_LANG_IN
+    # DEFAULT_LANG_OUT = DEFAULT_LANG_OUT
+    # PREFER_TRANS_DIRECTION = PREFER_TRANS_DIRECTION
 
     def __init__(self,reqObj=None,select=1):
         if reqObj is None:
             self.reqObj = Requests()
         self.reqObj = reqObj
         self.select = select
+        self.Config = config.getConfigDict()
+        # self.Config['PREFER_TRANS_DIRECTION']
+
+    @property
+    def PREFER_TRANS_DIRECTION(self):
+        return self.Config['PREFER_TRANS_DIRECTION']
+    @property
+    def DEFAULT_LANG_IN(self):
+        return self.Config['DEFAULT_LAN']['DEFAULT_LANG_IN']
+    @property
+    def DEFAULT_LANG_OUT(self):
+        return self.Config['DEFAULT_LAN']['DEFAULT_LANG_OUT']
+
 
     @staticmethod
     def scan_dictionaries():
@@ -439,7 +547,7 @@ class selectDictionary():
                 r +=  dictionaries[t]
             return r
         if transDirect not in dictionaries:
-            logging.debug("not available dictionary for {}".format(transDirect))
+            logging.debug("no dictionary for {}".format(transDirect))
             return []
         else:
             dList = list(dictionaries[transDirect])
@@ -464,10 +572,10 @@ class selectDictionary():
         I = cls.languageDetection(word)
         if I in cls.PREFER_TRANS_DIRECTION:
             O = cls.PREFER_TRANS_DIRECTION[I]
-            logging.debug("I={} is in preferd list, set O as {}".format(I,O))
+            logging.debug("I={} is in the preferd list, set O as {}".format(I,O))
         else:
             O = cls.DEFAULT_LANG_OUT
-            logging.debug("I={} is not in preferd list, set O as default: {}".format(I,O))
+            logging.debug("I={} is not in the preferd list, set O as default: {}".format(I,O))
         transDirect = I+"-"+O
         dic = cls.selectDictFromDictList(transDirect,dictionaries)
         if dic is None:
@@ -562,21 +670,37 @@ if __name__ == '__main__':
     parser.add_argument('-c','--code',help='print language codes: en, ja, zh,...',required=False,action="store_true")
     parser.add_argument('-s','--select',help='If multiple dictionary are available, select one according to the related-weight, default is 1 (the first one). Should be a non-zero integer',type=int,default=1,required=False)
     parser.add_argument('-l','--list', nargs='?',help='list all available dictionaries for a given translation-direction, for example -l zh-en',type=str,const="*",required=False)
+    parser.add_argument('-C','--config',help="set config file. Format --config section key value",nargs='*',required=False)
+    parser.add_argument('-r','--reset',help="delete config file. All setting by default",required=False,action="store_true")
 
     args = vars(parser.parse_args())
     # print(args)
 
+    console = Console()
+
+
+    #>>>>>>> set log >>>>>>>>>>>>>>>>>>>
+    if args['debug']:
+        level = logging.DEBUG
+    else:
+        level = logging.INFO
+    root = logging.getLogger()
+    root.setLevel(   level  )
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(  level  )
+    handler.setFormatter( logging.Formatter('%(asctime)s %(levelname)s %(message)s')   )
+    root.addHandler(handler)
+
+
 
     if args['code']:
         table631 = languageDetection.getTable631()
-        console = Console()
         user_renderables = [Panel( "[green]{}[/green]".format(c) + '\n' + "[#F47983]{}[/#F47983]".format(table631[c])   , expand=True) for c in table631]
         console.print(Columns(user_renderables))
         sys.exit()
 
     if args['list']:
         from rich.table import Table
-        console = Console()
         transDirect = args['list']
         #-----
         # validation
@@ -602,6 +726,23 @@ if __name__ == '__main__':
         console.print(table)
         sys.exit()
 
+    if args['reset']:
+        configFilePath = config.getConfigFilePath()
+        if os.path.exists(configFilePath):
+            os.remove(configFilePath)
+        sys.exit()
+
+    if args['config']:
+        opt = args['config']
+        if len(opt) != 3:
+            console.print("need exact 3 args: section-name key-name value")
+            sys.exit()
+        con_dict = config.getConfigDict()
+        con_dict[opt[0]][opt[1]] = opt[2]
+        config.setConfigDict(con_dict)
+        sys.exit()
+
+
 
 
 
@@ -613,17 +754,7 @@ if __name__ == '__main__':
 
 
 
-    #>>>>>>> set log >>>>>>>>>>>>>>>>>>>
-    if args['debug']:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    root = logging.getLogger()
-    root.setLevel(   level  )
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(  level  )
-    handler.setFormatter( logging.Formatter('%(asctime)s %(levelname)s %(message)s')   )
-    root.addHandler(handler)
+
 
     if args['proxy'] is None:
         ReqObj = Requests()
