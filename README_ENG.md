@@ -1,43 +1,42 @@
 # simple-dictionary (sd)
 
-# [ENGLISH](https://github.com/HengyueLi/simple-dictionary/README_ENG.md)
+A super simplified dictionary (fundamental function and single-file script) that translates words from any language to any other language. Aim to fast detect the input language and translate it. Keep the usage as simple as possible, as many functions as possible, as many dictionaries as possible. Network proxy is supported.
 
-一个超精简的在线词典。目标是快速识别语言然后翻译。输入过程尽量简单，功能尽量充足，词典库尽量多且可选。有代理功能。
+There are many projects that aim to wrap an online dictionary. Some of them are powerful dictionaries to translate a word from one language to another, but multiple languages are not supported. Some of them are not supporting user-defined dictionaries,... `sd` is aim to be a powerful dictionary with many functions. The translation, however, is kept as simple as possible.
 
-在网上找到要么就是有道，要么就是沪江，要么只有英文，内容详细但是功能太少。`sd`力求功能多一点，内容简单一点。
 
-# 安装
+# Install
 
-## 安装依赖
+## install packages
 ```
 pip install requests bs4 html2text langdetect rich requests[socks]
 ```
-或者(最好)
+or (better to do it in this way)
 ```
 pip install -r requirements.txt
 ```
 
-## 安装脚本
-一切从简，所有的内容都在一个`Python`脚本里面。直接下载`sd.py`就能用。比如我直接改名叫`sd`就用着了。另外也在考虑编译成一些`bin`文件,还有Cython加速啥的，再说吧。
+## install the script  
+To keep every as simply as possible, everything is in a single `Python` script: `sd.py`. You can download it as use it directly. Compiling to `bin` file is also under consideration.
 
-# 用法
+# Usage
 
-## 基本用法 `sd xxx`
+## basic usage `sd xxx`
 ```
-$ sd apple
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃ apple  en-zh   (有道 英中) ┃
-┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
-│ 英 <ˈæp(ə)l> 美 <ˈæpl>     │
-│                            │
-│   * n. 苹果                │
-│                            │
-│ < 复数 apples >            │
-│                            │
-│                            │
-└────────────────────────────┘
+$ sd 苹果
+┌─────────────────────────────┐
+│ 苹果  zh-en   (沪江小D中英) │
+├─────────────────────────────┤
+│ ## 苹果                     │
+│                             │
+│ <píngguǒ>                   │
+│                             │
+│ apple                       │
+│                             │
+│                             │
+└─────────────────────────────┘
 ```
-## 打错建议
+## suggestion for mistaking
 ```
 $ sd appl1
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -52,7 +51,7 @@ $ sd appl1
 │                                                         │
 └─────────────────────────────────────────────────────────┘
 ```
-## 能识别语种
+## language detaction
 ```
 $ sd 良し
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -69,10 +68,10 @@ $ sd 良し
 │                             │
 └─────────────────────────────┘
 ```
-目前用的[第三方](https://translatedlabs.com/)在线识别，当出现网络问题(超时啥的)的时候用py库`langdetect`识别（错误率比较高）。
+The detection use a [3rd party online](https://translatedlabs.com/). If it is not success, timeout for instance, the local package `langdetect` is used. But this is not so accurate.
 
-## 指定翻译方向(IO-input)
-翻译方向表示为`A-B`,例如`ja-zh`表示从日语翻译成中文（`sd -c`打印出所有的语言码）。例如可以强制指明输入的是日文，需要翻译成中文：
+## set translation pair (IO-input)
+A translation pair is represented as `A-B`, for example, `ja-zh` represents translating Japanese into Chinese (Print all language codes by `sd -c`). For example, the character of the word "Japan" in Chinese and Japanese are the same (日本), so one cannot tell which input language it is. We can clarify that we want to translate a word from Japanese to Chinese as:
 ```
 $ sd  -i ja -o zh 日本
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -91,22 +90,21 @@ $ sd  -i ja -o zh 日本
 └─────────────────────────────┘
 ```
 
-## 设置默认翻译方向(preferred-trans)
-当没有输入翻译方向时，使用默认设置。比如当检测输入为`en`（英文）时，默认翻译成`zh`（中文）则需要增加一条方向为`en->zh`。设置方法是`sd  --config PREFER_TRANS_DIRECTION en zh`。
-当前默认设置两条为：`en->zh`,`zh->en`
-
-## 设置默认语言
-- `default-in`: 当输入单词既没有人为指定语种，也没有成功被识别时，使用`default-in`指定的语言。通常设置成常用的查询语种。
-- `default-out`: 当没有人为指定翻译方向的目标语种或者通过默认翻译方向无法找到合适词典的时候，使用该设置。通常设置成自己的母语。
-- 设置方法
-  - 以`default-in`设置成`en`为例子:`sd --config DEFAULT_LAN DEFAULT_LANG_IN en`
-  - 以`default-out`设置成`zh`为例子:`sd --config DEFAULT_LAN DEFAULT_LANG_OUT zh`
+## set default translation pairs
+For one's own will, a preferred pair is used. For example, when an `en` word is detected, I want to translate it into `zh`. Then I need to set a pair `en->zh`. It is done by `sd  --config PREFER_TRANS_DIRECTION en zh`. By default, there are two pairs: `en->zh` and `zh->en`.
 
 
+## set default language
+- `default-in`: When the language of the input word is neither successfully detected nor clarified by the user, this setting will be used. Usually, you should set this value to the one that you frequently translate.
+- `default-out`: When the language of the output word is not clarified by the user and the detected pair is not available currently, this setting will be used. Usually, you should set this value to your mother tongue.
+- method to set:
+  - example of setting `default-in` as `en`: `sd --config DEFAULT_LAN DEFAULT_LANG_IN en`
+  - example of setting `default-out` as `zh`: `sd --config DEFAULT_LAN DEFAULT_LANG_OUT zh`
 
 
-## 同一个翻译方向可以内置多个词典
-如下显示可用的词典
+
+## Multiple dictionaries for one pair
+For a given pair, list all available dictionaries by
 ```
 $ sd -l en-zh
 ┏━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -116,7 +114,7 @@ $ sd -l en-zh
 │ 2     │ en->zh    │ 沪江小D英中 │ https://dict.hjenglish.com/notfound/w/[WORD]         │
 └───────┴───────────┴─────────────┴──────────────────────────────────────────────────────┘
 ```
-可以切换不同的词典对比内容
+Fast to switch between dictionaries
 ```
 $ sd apple -s 2
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -132,9 +130,8 @@ $ sd apple -s 2
 └──────────────────────────────┘
 ```
 
-
-## 使用代理
-细节参考`sd -h`。在NAT后面的时候，这个还是很重要的（比如公司里）。当然不能每次都这样输入，你可能需要自己把脚本再包装一下了。或者考虑增加配置文件，有需求再说吧。
+## Proxy
+Details can be found by `sd -h`. In the case of behind a NAT, employees in companies, for instance, this is very useful. An example is given below. Of cause, it is awkward if you type such as long command each time. You probably need to wrap a script by yourself. A configuration file is also under consideration...
 ```
 sd -p http=socks5h://127.0.0.1:1080 apple
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -149,12 +146,13 @@ sd -p http=socks5h://127.0.0.1:1080 apple
 │                            │
 └────────────────────────────┘
 ```
-也可以添加多条，如：
-`-p http=socks5h://127.0.0.1:1080@https=socks5h://127.0.0.1:1080`。proxy的格式请参考Python包`requests`中关于`Proxies`的设置。
+You can use many proxies:
+`-p http=socks5h://127.0.0.1:1080@https=socks5h://127.0.0.1:1080`. The format of the proxy can be referred to the Python package `requests`.
 
 
-# 词典库
-目标是添加各种各样的翻译方向。我自己的工作环境只用到中日英，现在只有几种先用着，以后慢慢添加。有需要的留言。`sd -l`打印所有可用的词典。
+# Available dictionaries
+The final target of `sd` is to applicable for any translating pairs. For me, one `en`, `ja` and `zh` is used. I will try to append new pairs. Issue me if you has a request (better offer me a website meanwhile).  
+
 （沪江词典需要用cookie，也看不懂里面有什么信息，安全起见我从[其他](https://github.com/Asutorufa/hujiang_dictionary)项目的代码里面copy过来的。）
 ```
 ┌───────┬───────────┬──────────────────────┬─────────────────────────────────────────────────────────┐
@@ -177,8 +175,9 @@ sd -p http=socks5h://127.0.0.1:1080 apple
 ```
 
 
-## 自己添加词典库
-可以在issue留言（希望可以提供一个可靠的在线源），等不及了可以在源代码里面添加。需要会对`BeautifulSoup`懂一点。以下是"有道 中英"词典的例子。类的名字一定要用`DICTIONARY_`打头，用来扫描的。
+## User defined dictionary
+In principle, I can do it for you. One can issue a request. Or you can make one by yourself if you like. One needs to know a little about the `BeautifulSoup`. An example is shown below. One needs to define a class based on the father class `online_dictionary`. The name of the defined class must start with `DICTIONARY_`. The prefix is used for scanning the dictionary automatically.
+
 ```
 
 class DICTIONARY_ChineseToEnglish1(online_dictionary):
@@ -220,5 +219,5 @@ class DICTIONARY_ChineseToEnglish1(online_dictionary):
 
 
 
-# 恢复默认设置
+# recover the default setting
 `sd --reset`

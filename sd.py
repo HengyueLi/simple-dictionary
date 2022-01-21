@@ -114,15 +114,6 @@ class config():
 
 
 
-
-
-
-
-
-
-
-
-
 class Requests():
 
     def __init__(self,**reqkwargs):
@@ -214,6 +205,13 @@ class online_dictionary():
 
 
 
+
+
+
+
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+#                          dictionary
+#>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
 
 
@@ -360,7 +358,7 @@ class DICTIONARY_ChineseToJapanese1(HuJiang_online):
         url = "https://dict.hjenglish.com/notfound/jp/cj/{}".format(word)
         return url
 
-class DICTIONARY_EnglishToChinese2(HuJiang_online):
+class DICTIONARY_EnglishToChinese_hujiang(HuJiang_online):
 
     @staticmethod
     def selectionWeight() -> int: return 1
@@ -378,6 +376,79 @@ class DICTIONARY_EnglishToChinese2(HuJiang_online):
         url = "https://dict.hjenglish.com/notfound/w/{}".format(word)
         return url
 
+class DICTIONARY_ChineseToEnglish_hujiang(DICTIONARY_EnglishToChinese_hujiang):
+
+    @staticmethod
+    def selectionWeight() -> int: return 2
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "沪江小D中英"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['zh','en']
+
+class DICTIONARY_Korean2Chinese_hujiang(HuJiang_online):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "沪江小D韩中"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['ko','zh']
+
+    @staticmethod
+    def makeURL(word)->str:
+        url = "https://dict.hjenglish.com/kr/{}".format(word)
+        return url
+
+class DICTIONARY_Chinese2Korean_hujiang(DICTIONARY_Korean2Chinese_hujiang):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "沪江小D中韩"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['zh','ko']
+
+    @staticmethod
+    def makeURL(word)->str:
+        url = "https://dict.hjenglish.com/kr/{}".format(word)
+        return url
+
+class DICTIONARY_French2Chinese_hujiang(HuJiang_online):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "沪江小D法中"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['fr','zh']
+
+    @staticmethod
+    def makeURL(word)->str:
+        url = "https://dict.hjenglish.com/fr/{}".format(word)
+        return url
+
+
+class DICTIONARY_Chinese2French_hujiang(DICTIONARY_French2Chinese_hujiang):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "沪江小D中法"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['zh','fr']
+
+    @staticmethod
+    def makeURL(word)->str:
+        url = "https://dict.hjenglish.com/fr/{}".format(word)
+        return url
 
 
 
@@ -416,6 +487,49 @@ class DICTIONARY_EnglishToJapanese1(online_dictionary):
 
 
 
+
+
+
+class DICTIONARY_German2Chinese(online_dictionary):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "www.godic.net de->zh"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['de','zh']
+
+    @staticmethod
+    def makeURL(word)->str:
+        return "https://www.godic.net/dicts/de/{}".format(word)
+
+    @staticmethod
+    def IsExists(soup):
+        return soup.find('div',{'id':'ExpFC',"class":'explain_wrap'}) is not None
+
+
+    @staticmethod
+    def getHTMLfromSoup_translation(soup)->str:
+        div = soup.find('div',{'id':'ExpFC',"class":'explain_wrap'})
+        div.find('a').decompose()
+        div.find('div',{'class':'thumbnialNeedUpload'}).decompose()
+        return str(div)
+
+    @staticmethod
+    def getHTMLfromSoup_suggestion(soup)->str:
+        suggestion = soup.find('div',{"class":'suggestion-list'})
+        return str(suggestion)
+
+class DICTIONARY_Chinese2German(DICTIONARY_German2Chinese):
+
+    @staticmethod
+    def getDictionaryName()->str:
+        return "www.godic.net zh->de"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['zh','de']
 
 
 
