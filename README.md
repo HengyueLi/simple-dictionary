@@ -1,6 +1,6 @@
 # simple-dictionary (sd)
 
-# [ENGLISH](https://github.com/HengyueLi/simple-dictionary/README_ENG.md)
+# [ENGLISH README](https://github.com/HengyueLi/simple-dictionary/blob/main/README_ENG.md)
 
 一个超精简的在线词典。目标是快速识别语言然后翻译。输入过程尽量简单，功能尽量充足，词典库尽量多且可选。有代理功能。
 
