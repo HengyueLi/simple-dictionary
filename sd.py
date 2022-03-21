@@ -14,12 +14,14 @@
 #──────────────────────────
 # used:
 import os
+import json
 import sys
 import inspect
 import argparse
 import logging
 import requests
 import configparser
+
 #
 import bs4
 import html2text
@@ -74,6 +76,9 @@ class config():
                 "en":'zh',
                 'zh':'en',
             },
+            "CONFIG":{
+                "USE_CACHE":False,
+            }
         }
 
     @classmethod
@@ -112,6 +117,48 @@ class config():
 
 
 
+class Cache():
+
+    def __init__(self):
+        self.Dict = None
+
+    @staticmethod
+    def __getCacheFileName():
+        return 'sd_cache.json'
+
+    @staticmethod
+    def __getConfigFileLocationDir():
+        return os.path.join(os.path.expanduser('~'), '.config' )
+
+    def __getCacheFilePath(self):
+        return os.path.join(self.__getConfigFileLocationDir() , self.__getCacheFileName() )
+
+    def __getCacheDict(self):
+        if not os.path.exists(self.__getCacheFilePath()):
+            try:
+                os.mkdirs(self.__getConfigFileLocationDir())
+            except:
+                pass
+            return {}
+        else:
+            with open(self.__getCacheFilePath(),'r') as f:
+                return json.loads(f.read())
+
+
+    def get(self,dictionaryName,key):
+        cache = self.__getCacheDict()
+        d = cache.get(dictionaryName,None)
+        if d is None:
+            return None,None
+        return d.get(key,(None,None))
+
+    def set(self,dictionaryName,key,val):
+        cache = self.__getCacheDict()
+        if dictionaryName not in cache:
+            cache[dictionaryName] = {}
+        cache[dictionaryName][key] = val
+        with open(self.__getCacheFilePath(),'w') as f:
+            f.write( json.dumps(cache) )
 
 
 class Requests():
@@ -174,8 +221,16 @@ class online_dictionary():
 
     #------------------------------------------
 
-    def __init__(self,ReqObj):
+    def __init__(self,ReqObj,Config=None):
         self.ReqObj = ReqObj
+        self.Config = Config
+
+    def __isUseCache(self):
+        if self.Config is not None:
+            return self.Config['USE_CACHE']
+        else:
+            return False
+
 
     def GetHTMLtoplainText(self,HTMLstring):
         h = html2text.HTML2Text()
@@ -184,24 +239,61 @@ class online_dictionary():
         return h.handle (HTMLstring)
         # return html2text.html2text(HTMLstring)
 
-
-    def PrintTranslation(self,word):
-        console = Console()
-        table = rich.table.Table()
+    def getByRequest(self,word):
         soup = self.ReqObj.GetSoup( self.makeURL(word), para= self.setRequestPara())
-        FROM,TO = self.getTranslationDirection()
         if self.IsExists(soup):
             logging.debug("translation is found")
             html = self.getHTMLfromSoup_translation(soup)
             ConsolePrintTxt = self.GetHTMLtoplainText(html)
-            table.add_column( "[yellow]{}[/yellow]".format(word) + "  [green]{}-{}[/green]   [green]({})[/green]".format(FROM,TO,self.getDictionaryName()))
+            return True,ConsolePrintTxt
         else:
             logging.debug("translation is not found, get suggestions")
             html = self.getHTMLfromSoup_suggestion(soup)
             ConsolePrintTxt = self.GetHTMLtoplainText(html)
+            return False,ConsolePrintTxt
+
+    def PrintTranslation(self,word):
+        isUseCache = self.__isUseCache()
+        logging.debug('use cache = [{}]'.format(isUseCache))
+        if isUseCache:
+            cache = Cache()
+            cg = cache.get(dictionaryName=self.getDictionaryName(),key=word)
+            if cg is None:
+                isExist,ConsolePrintTxt = cg
+            else:
+                isExist,ConsolePrintTxt = self.getByRequest(word=word)
+                cache.set(dictionaryName=self.getDictionaryName(),key=word,val=[isExist,ConsolePrintTxt])
+        else:
+            isExist,ConsolePrintTxt = self.getByRequest(word=word)
+        #-----
+        console = Console()
+        table = rich.table.Table()
+        FROM,TO = self.getTranslationDirection()
+        if isExist:
+            table.add_column( "[yellow]{}[/yellow]".format(word) + "  [green]{}-{}[/green]   [green]({})[/green]".format(FROM,TO,self.getDictionaryName()))
+        else:
             table.add_column( "[red]{}[/red]".format(word) + "  is not found by [red]{}-{}[/red] ({}), suggestions: ".format(FROM,TO,self.getDictionaryName()))
         table.add_row(ConsolePrintTxt.replace('[',"<").replace(']',">"))
         console.print(table)
+
+
+    # def PrintTranslation(self,word):
+    #     console = Console()
+    #     table = rich.table.Table()
+    #     soup = self.ReqObj.GetSoup( self.makeURL(word), para= self.setRequestPara())
+    #     FROM,TO = self.getTranslationDirection()
+    #     if self.IsExists(soup):
+    #         logging.debug("translation is found")
+    #         html = self.getHTMLfromSoup_translation(soup)
+    #         ConsolePrintTxt = self.GetHTMLtoplainText(html)
+    #         table.add_column( "[yellow]{}[/yellow]".format(word) + "  [green]{}-{}[/green]   [green]({})[/green]".format(FROM,TO,self.getDictionaryName()))
+    #     else:
+    #         logging.debug("translation is not found, get suggestions")
+    #         html = self.getHTMLfromSoup_suggestion(soup)
+    #         ConsolePrintTxt = self.GetHTMLtoplainText(html)
+    #         table.add_column( "[red]{}[/red]".format(word) + "  is not found by [red]{}-{}[/red] ({}), suggestions: ".format(FROM,TO,self.getDictionaryName()))
+    #     table.add_row(ConsolePrintTxt.replace('[',"<").replace(']',">"))
+    #     console.print(table)
 
 
 
@@ -888,5 +980,5 @@ if __name__ == '__main__':
     if dictionary is None:
         logging.error("No available dictionary for [{}] ({}), use --debug to see the details".format( " ".join(args['Input']), transDirect ))
     else:
-        d = dictionary(ReqObj)
+        d = dictionary(ReqObj,Config=config.getConfigDict()['CONFIG'])
         d.PrintTranslation( word_trans )
