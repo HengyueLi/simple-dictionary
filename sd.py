@@ -129,7 +129,7 @@ class Cache_base():
 
     @staticmethod
     def __getConfigFileLocationDir():
-        return os.path.join(os.path.expanduser('~'), '.config' )
+        return os.path.join(os.path.expanduser('~'), '.cache' )
 
     def __getCacheFilePath(self):
         return os.path.join(self.__getConfigFileLocationDir() , self.__getCacheFileName() )
@@ -904,7 +904,7 @@ class DICTIONARY_Chinese2German(DICTIONARY_German2Chinese):
 
 
 if __name__ == '__main__':
-    
+
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
     description='''
         ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
