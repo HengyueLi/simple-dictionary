@@ -116,8 +116,9 @@ class config():
             parser.write(f)
 
 
-
-class Cache():
+class Cache_base():
+    # def get(table,key): return None if not exist
+    # def set(table,key,val)
 
     def __init__(self):
         self.Dict = None
@@ -144,21 +145,46 @@ class Cache():
             with open(self.__getCacheFilePath(),'r') as f:
                 return json.loads(f.read())
 
-
-    def get(self,dictionaryName,key):
+    def get(self,table,key):
         cache = self.__getCacheDict()
-        d = cache.get(dictionaryName,None)
+        d = cache.get(table,None)
         if d is None:
-            return None,None
-        return d.get(key,(None,None))
+            return None
+        return d.get(key,None)
 
-    def set(self,dictionaryName,key,val):
+    def set(self,table,key,val):
         cache = self.__getCacheDict()
-        if dictionaryName not in cache:
-            cache[dictionaryName] = {}
-        cache[dictionaryName][key] = val
+        if table not in cache:
+            cache[table] = {}
+        cache[table][key] = val
         with open(self.__getCacheFilePath(),'w') as f:
             f.write( json.dumps(cache) )
+
+
+class Cache_dict():
+
+    def __init__(self):
+        self.cache = Cache_base()
+
+    def get(self,dictionaryName,key):
+        tableName = "DICT"+dictionaryName
+        g = self.cache.get(table=tableName,key=key)
+        return g
+
+    def set(self,dictionaryName,key,val):
+        tableName = "DICT"+dictionaryName
+        self.cache.set(table=tableName,key=key,val=val)
+
+class Cache_langdetect():
+    def __init__(self):
+        self.cache = Cache_base()
+
+    def get(self,word):
+        g = self.cache.get(table='LAND',key=word)
+        return g
+
+    def set(self,key,val):
+        self.cache.set(table='LAND',key=key,val=val)
 
 
 class Requests():
@@ -256,9 +282,9 @@ class online_dictionary():
         isUseCache = self.__isUseCache()
         logging.debug('use cache = [{}]'.format(isUseCache))
         if isUseCache:
-            cache = Cache()
+            cache = Cache_dict()
             cg = cache.get(dictionaryName=self.getDictionaryName(),key=word)
-            if cg is None:
+            if cg is not None:
                 isExist,ConsolePrintTxt = cg
             else:
                 isExist,ConsolePrintTxt = self.getByRequest(word=word)
@@ -294,6 +320,246 @@ class online_dictionary():
     #         table.add_column( "[red]{}[/red]".format(word) + "  is not found by [red]{}-{}[/red] ({}), suggestions: ".format(FROM,TO,self.getDictionaryName()))
     #     table.add_row(ConsolePrintTxt.replace('[',"<").replace(']',">"))
     #     console.print(table)
+
+# class languageDetection_langdetect():
+#
+#     @staticmethod
+#     def detect(cls,word):
+#         g = langdetect.detect_langs(word)[0]
+#         logging.debug('word [{}] is detected as {} with P={}, use lib langdetect'.format(word,g.lang,g.prob))
+#         return g.lang[0:2]
+#
+# class languageDetection_langdetect():
+
+
+
+class languageDetection():
+
+
+    def __init__(self,reqObj,Config=None):
+        self.reqObj = reqObj
+        self.Config = Config
+
+    @staticmethod
+    def getTable631():
+        # not all of them, details see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+        return {'af': 'afrikaans', 'ar': 'arabic', 'bg': 'bulgarian', 'bn': 'bengali',
+                'ca': 'catalan', 'cs': 'czech', 'cy': 'welsh', 'da': 'danish', 'de': 'german',
+                'el': 'greek', 'en': 'english', 'es': 'spanish', 'et': 'estonian', 'fa': 'persian',
+                'fi': 'finnish', 'fr': 'french', 'gu': 'gujarati', 'he': 'hebrew', 'hi': 'hindi',
+                'hr': 'croatian', 'hu': 'hungarian', 'id': 'indonesian', 'it': 'italian', 'ja': 'japanese',
+                'kn': 'kannada', 'ko': 'korean', 'lt': 'lithuanian', 'lv': 'latvian', 'mk': 'macedonian',
+                'ml': 'malayalam', 'mr': 'marathi', 'ne': 'nepali', 'nl': 'dutch', 'no': 'norwegian',
+                'pa': 'punjabi', 'pl': 'polish', 'pt': 'portuguese', 'ro': 'romanian', 'ru': 'russian',
+                'sk': 'slovak', 'sl': 'slovenian', 'so': 'somali', 'sq': 'albanian', 'sv': 'swedish',
+                'sw': 'swahili', 'ta': 'tamil', 'te': 'telugu', 'th': 'thai', 'tl': 'tagalog',
+                'tr': 'turkish', 'uk': 'ukrainian', 'ur': 'urdu', 'vi': 'vietnamese', 'zh': 'chinese'}
+
+    def isUseCache(self):
+        return self.Config['USE_CACHE']
+
+    @staticmethod
+    def detect_langdetect(word):
+        g = langdetect.detect_langs(word)[0]
+        # g.prob
+        logging.debug('word [{}] is detected as {} with P={}, use lib langdetect'.format(word,g.lang,g.prob))
+        return g.lang[0:2]
+
+    def detect_translatedlabs(self,word):
+        logging.debug("detect '{}' by translatedlabs".format(word))
+        url = 'https://api.translatedlabs.com/language-identifier/identify'
+        data = '{{"text":"{}","uiLanguage":"en","etnologue":true}}'.format(word).encode()
+        language = self.reqObj.postJson(url,data=data)['language'].lower()
+        table = self.getTable631()
+        for code in table:
+            if table[code] == language:
+                return code
+        logging.debug("can not find language '{}' in table631".format(language))
+        return "??"
+
+    # more api
+    #  https://languagetool.org/
+
+
+    def detect_withoutCache(self,word):
+        try:
+            return self.detect_translatedlabs(word)
+        except:
+            return self.detect_langdetect(word)
+
+    def detect(self,word):
+        if self.isUseCache():
+            cache = Cache_langdetect()
+            cg = cache.get(word)
+            if cg is None:
+                r = self.detect_withoutCache(word)
+                cache.set(word,r)
+                return r
+            else:
+                return cg
+        else:
+            return self.detect_withoutCache(word)
+
+
+
+
+
+
+
+# config.getConfigDict()[]
+
+class selectDictionary():
+
+    # DEFAULT_LANG_IN = DEFAULT_LANG_IN
+    # DEFAULT_LANG_OUT = DEFAULT_LANG_OUT
+    # PREFER_TRANS_DIRECTION = PREFER_TRANS_DIRECTION
+
+    def __init__(self,reqObj=None,select=1):
+        if reqObj is None:
+            self.reqObj = Requests()
+        self.reqObj = reqObj
+        self.select = select
+        self.Config = config.getConfigDict()
+        # self.Config['PREFER_TRANS_DIRECTION']
+
+    @property
+    def PREFER_TRANS_DIRECTION(self):
+        return self.Config['PREFER_TRANS_DIRECTION']
+    @property
+    def DEFAULT_LANG_IN(self):
+        return self.Config['DEFAULT_LAN']['DEFAULT_LANG_IN']
+    @property
+    def DEFAULT_LANG_OUT(self):
+        return self.Config['DEFAULT_LAN']['DEFAULT_LANG_OUT']
+
+
+    @staticmethod
+    def scan_dictionaries():
+        dictionaries = {}
+        for name, cls in inspect.getmembers(sys.modules[__name__]):
+            if "DICTIONARY_" == name[:11]:
+                key = '-'.join(cls.getTranslationDirection())
+                if key not in dictionaries:
+                    dictionaries[key] = []
+                dictionaries[key].append(cls)
+        return dictionaries
+
+    def languageDetection(self,word):
+        return languageDetection(self.reqObj,Config=self.Config['CONFIG']).detect(word)
+
+    @classmethod
+    def select_dictionaries(cls,transDirect,dictionaries=None)->list:
+        if dictionaries is None:
+            dictionaries = cls.scan_dictionaries()
+        if transDirect == "*":
+            # return all
+            r = []
+            for t in dictionaries:
+                r +=  dictionaries[t]
+            return r
+        if transDirect not in dictionaries:
+            logging.debug("no dictionary for {}".format(transDirect))
+            return []
+        else:
+            dList = list(dictionaries[transDirect])
+            dList = sorted(dList,key= lambda item: item.selectionWeight(),reverse=True)
+            return dList
+
+    def selectDictFromDictList(self,tranDirect,dictionaries):
+        dList = self.select_dictionaries(transDirect=tranDirect,dictionaries=dictionaries)
+        if len(dList) == 0:
+            return None
+        logging.debug("{} optional dictionaries for {} can be found, they are: {}".format( len(dictionaries[tranDirect]),tranDirect, ",".join([d.getDictionaryName() for d in dictionaries[tranDirect]]) ))
+        if 0< self.select <=len(dList):
+            logging.debug("select dictionary = {} according to the weight".format(dList[self.select-1].getDictionaryName()))
+            return dList[self.select-1]
+        else:
+            logging.error("select = {} is out of range. You only have {} directionaries for {}".format(self.select,len(dList),tranDirect))
+            logging.info("reset select = 1")
+            return dList[0]
+
+    def select_case_EE(cls,dictionaries,word):
+        logging.debug("select dictionary: case EE")
+        I = cls.languageDetection(word)
+        if I in cls.PREFER_TRANS_DIRECTION:
+            O = cls.PREFER_TRANS_DIRECTION[I]
+            logging.debug("I={} is in the preferd list, set O as {}".format(I,O))
+        else:
+            O = cls.DEFAULT_LANG_OUT
+            logging.debug("I={} is not in the preferd list, set O as default: {}".format(I,O))
+        transDirect = I+"-"+O
+        dic = cls.selectDictFromDictList(transDirect,dictionaries)
+        if dic is None:
+            I = cls.DEFAULT_LANG_IN
+            logging.debug("reset I as default: {}".format(I))
+            return cls.select_case_IE(dictionaries,word,I)
+        else:
+            return dic,transDirect
+    def select_case_EO(cls,dictionaries,word,O):
+        logging.debug("select dictionary: case EO")
+        I = cls.languageDetection(word)
+        transDirect = I+"-"+O
+        dic = cls.selectDictFromDictList(transDirect,dictionaries)
+        if dic is None:
+            transDirect = cls.DEFAULT_LANG_IN + "-"+O
+            return cls.select_case_IO(dictionaries,word,I,O)
+        else:
+            return dic,transDirect
+    def select_case_IE(cls,dictionaries,word,I):
+        logging.debug("select dictionary: case IE")
+        if I in cls.PREFER_TRANS_DIRECTION:
+            O = cls.PREFER_TRANS_DIRECTION[I]
+            logging.debug("I={} is in preferd list, set O as {}".format(I,O))
+            transDirect = I + "-"+O
+            dic = cls.selectDictFromDictList(transDirect,dictionaries)
+            if dic is not None:
+                return dic,transDirect
+        O = cls.DEFAULT_LANG_OUT
+        return cls.select_case_IO(dictionaries,word,I,O)
+    def select_case_IO(cls,dictionaries,word,I,O):
+        logging.debug("select dictionary: case IO")
+        transDirect = I + "-"+O
+        dic = cls.selectDictFromDictList(transDirect,dictionaries)
+        return dic,transDirect
+
+    def selectdict(cls,word,langIn,langOut):
+        #
+        #   Priorities of tanslations in 4 cases: E-E,E-O,I-E,I-O.
+        #   For example, I-E represents the input language is given while the Output language is missing.
+        #
+        #      E-E                                 E-O                              I-E                         I-O
+        #       ↓                                   ↓                                ↓                           ↓
+        #     detect I                           detect I                        preferd O exist?             IO available?
+        #       ↓                                   ↓                            ↓yes        ↓no              ↓yes      ↓no
+        #  set preferd O if exist,              available?                   IO available?   ↓              selected    error
+        #  else set default O                  ↓yes     ↓no                  ↓yes     no→ set default O
+        #       ↓                           selected    set default I      selected          ↓
+        #   IO available?                               ↓                                 to case I-O
+        #    ↓yes       ↓no                             to case I-O
+        #   selected   set default I
+        #               ↓
+        #             to case I-E
+        dictionaries = cls.scan_dictionaries()
+        if langIn is None:
+            if langOut is None:
+                return cls.select_case_EE(dictionaries,word)
+            else:
+                return cls.select_case_EO(dictionaries,word,langOut)
+        else:
+            if langOut is None:
+                return cls.select_case_IE(dictionaries,word,langIn)
+            else:
+                return cls.select_case_IO(dictionaries,word,langIn,langOut)
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -632,234 +898,13 @@ class DICTIONARY_Chinese2German(DICTIONARY_German2Chinese):
 
 
 
-# class languageDetection_langdetect():
-#
-#     @staticmethod
-#     def detect(cls,word):
-#         g = langdetect.detect_langs(word)[0]
-#         logging.debug('word [{}] is detected as {} with P={}, use lib langdetect'.format(word,g.lang,g.prob))
-#         return g.lang[0:2]
-#
-# class languageDetection_langdetect():
-
-
-
-class languageDetection():
-
-
-    def __init__(self,reqObj):
-        self.reqObj = reqObj
-
-    @staticmethod
-    def getTable631():
-        # not all of them, details see https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
-        return {'af': 'afrikaans', 'ar': 'arabic', 'bg': 'bulgarian', 'bn': 'bengali',
-                'ca': 'catalan', 'cs': 'czech', 'cy': 'welsh', 'da': 'danish', 'de': 'german',
-                'el': 'greek', 'en': 'english', 'es': 'spanish', 'et': 'estonian', 'fa': 'persian',
-                'fi': 'finnish', 'fr': 'french', 'gu': 'gujarati', 'he': 'hebrew', 'hi': 'hindi',
-                'hr': 'croatian', 'hu': 'hungarian', 'id': 'indonesian', 'it': 'italian', 'ja': 'japanese',
-                'kn': 'kannada', 'ko': 'korean', 'lt': 'lithuanian', 'lv': 'latvian', 'mk': 'macedonian',
-                'ml': 'malayalam', 'mr': 'marathi', 'ne': 'nepali', 'nl': 'dutch', 'no': 'norwegian',
-                'pa': 'punjabi', 'pl': 'polish', 'pt': 'portuguese', 'ro': 'romanian', 'ru': 'russian',
-                'sk': 'slovak', 'sl': 'slovenian', 'so': 'somali', 'sq': 'albanian', 'sv': 'swedish',
-                'sw': 'swahili', 'ta': 'tamil', 'te': 'telugu', 'th': 'thai', 'tl': 'tagalog',
-                'tr': 'turkish', 'uk': 'ukrainian', 'ur': 'urdu', 'vi': 'vietnamese', 'zh': 'chinese'}
-
-
-    @staticmethod
-    def detect_langdetect(word):
-        g = langdetect.detect_langs(word)[0]
-        # g.prob
-        logging.debug('word [{}] is detected as {} with P={}, use lib langdetect'.format(word,g.lang,g.prob))
-        return g.lang[0:2]
-
-    def detect_translatedlabs(self,word):
-        logging.debug("detect '{}' by translatedlabs".format(word))
-        url = 'https://api.translatedlabs.com/language-identifier/identify'
-        data = '{{"text":"{}","uiLanguage":"en","etnologue":true}}'.format(word).encode()
-        language = self.reqObj.postJson(url,data=data)['language'].lower()
-        table = self.getTable631()
-        for code in table:
-            if table[code] == language:
-                return code
-        logging.debug("can not find language '{}' in table631".format(language))
-        return "??"
-
-    # more api
-    #  https://languagetool.org/
-
-
-    def detect(self,word):
-        try:
-            return self.detect_translatedlabs(word)
-        except:
-            return self.detect_langdetect(word)
-
-
-
-
-
-
-
-# config.getConfigDict()[]
-
-class selectDictionary():
-
-    # DEFAULT_LANG_IN = DEFAULT_LANG_IN
-    # DEFAULT_LANG_OUT = DEFAULT_LANG_OUT
-    # PREFER_TRANS_DIRECTION = PREFER_TRANS_DIRECTION
-
-    def __init__(self,reqObj=None,select=1):
-        if reqObj is None:
-            self.reqObj = Requests()
-        self.reqObj = reqObj
-        self.select = select
-        self.Config = config.getConfigDict()
-        # self.Config['PREFER_TRANS_DIRECTION']
-
-    @property
-    def PREFER_TRANS_DIRECTION(self):
-        return self.Config['PREFER_TRANS_DIRECTION']
-    @property
-    def DEFAULT_LANG_IN(self):
-        return self.Config['DEFAULT_LAN']['DEFAULT_LANG_IN']
-    @property
-    def DEFAULT_LANG_OUT(self):
-        return self.Config['DEFAULT_LAN']['DEFAULT_LANG_OUT']
-
-
-    @staticmethod
-    def scan_dictionaries():
-        dictionaries = {}
-        for name, cls in inspect.getmembers(sys.modules[__name__]):
-            if "DICTIONARY_" == name[:11]:
-                key = '-'.join(cls.getTranslationDirection())
-                if key not in dictionaries:
-                    dictionaries[key] = []
-                dictionaries[key].append(cls)
-        return dictionaries
-
-    def languageDetection(self,word):
-        return languageDetection(self.reqObj).detect(word)
-
-    @classmethod
-    def select_dictionaries(cls,transDirect,dictionaries=None)->list:
-        if dictionaries is None:
-            dictionaries = cls.scan_dictionaries()
-        if transDirect == "*":
-            # return all
-            r = []
-            for t in dictionaries:
-                r +=  dictionaries[t]
-            return r
-        if transDirect not in dictionaries:
-            logging.debug("no dictionary for {}".format(transDirect))
-            return []
-        else:
-            dList = list(dictionaries[transDirect])
-            dList = sorted(dList,key= lambda item: item.selectionWeight(),reverse=True)
-            return dList
-
-    def selectDictFromDictList(self,tranDirect,dictionaries):
-        dList = self.select_dictionaries(transDirect=tranDirect,dictionaries=dictionaries)
-        if len(dList) == 0:
-            return None
-        logging.debug("{} optional dictionaries for {} can be found, they are: {}".format( len(dictionaries[tranDirect]),tranDirect, ",".join([d.getDictionaryName() for d in dictionaries[tranDirect]]) ))
-        if 0< self.select <=len(dList):
-            logging.debug("select dictionary = {} according to the weight".format(dList[self.select-1].getDictionaryName()))
-            return dList[self.select-1]
-        else:
-            logging.error("select = {} is out of range. You only have {} directionaries for {}".format(self.select,len(dList),tranDirect))
-            logging.info("reset select = 1")
-            return dList[0]
-
-    def select_case_EE(cls,dictionaries,word):
-        logging.debug("select dictionary: case EE")
-        I = cls.languageDetection(word)
-        if I in cls.PREFER_TRANS_DIRECTION:
-            O = cls.PREFER_TRANS_DIRECTION[I]
-            logging.debug("I={} is in the preferd list, set O as {}".format(I,O))
-        else:
-            O = cls.DEFAULT_LANG_OUT
-            logging.debug("I={} is not in the preferd list, set O as default: {}".format(I,O))
-        transDirect = I+"-"+O
-        dic = cls.selectDictFromDictList(transDirect,dictionaries)
-        if dic is None:
-            I = cls.DEFAULT_LANG_IN
-            logging.debug("reset I as default: {}".format(I))
-            return cls.select_case_IE(dictionaries,word,I)
-        else:
-            return dic,transDirect
-    def select_case_EO(cls,dictionaries,word,O):
-        logging.debug("select dictionary: case EO")
-        I = cls.languageDetection(word)
-        transDirect = I+"-"+O
-        dic = cls.selectDictFromDictList(transDirect,dictionaries)
-        if dic is None:
-            transDirect = cls.DEFAULT_LANG_IN + "-"+O
-            return cls.select_case_IO(dictionaries,word,I,O)
-        else:
-            return dic,transDirect
-    def select_case_IE(cls,dictionaries,word,I):
-        logging.debug("select dictionary: case IE")
-        if I in cls.PREFER_TRANS_DIRECTION:
-            O = cls.PREFER_TRANS_DIRECTION[I]
-            logging.debug("I={} is in preferd list, set O as {}".format(I,O))
-            transDirect = I + "-"+O
-            dic = cls.selectDictFromDictList(transDirect,dictionaries)
-            if dic is not None:
-                return dic,transDirect
-        O = cls.DEFAULT_LANG_OUT
-        return cls.select_case_IO(dictionaries,word,I,O)
-    def select_case_IO(cls,dictionaries,word,I,O):
-        logging.debug("select dictionary: case IO")
-        transDirect = I + "-"+O
-        dic = cls.selectDictFromDictList(transDirect,dictionaries)
-        return dic,transDirect
-
-    def selectdict(cls,word,langIn,langOut):
-        #
-        #   Priorities of tanslations in 4 cases: E-E,E-O,I-E,I-O.
-        #   For example, I-E represents the input language is given while the Output language is missing.
-        #
-        #      E-E                                 E-O                              I-E                         I-O
-        #       ↓                                   ↓                                ↓                           ↓
-        #     detect I                           detect I                        preferd O exist?             IO available?
-        #       ↓                                   ↓                            ↓yes        ↓no              ↓yes      ↓no
-        #  set preferd O if exist,              available?                   IO available?   ↓              selected    error
-        #  else set default O                  ↓yes     ↓no                  ↓yes     no→ set default O
-        #       ↓                           selected    set default I      selected          ↓
-        #   IO available?                               ↓                                 to case I-O
-        #    ↓yes       ↓no                             to case I-O
-        #   selected   set default I
-        #               ↓
-        #             to case I-E
-        dictionaries = cls.scan_dictionaries()
-        if langIn is None:
-            if langOut is None:
-                return cls.select_case_EE(dictionaries,word)
-            else:
-                return cls.select_case_EO(dictionaries,word,langOut)
-        else:
-            if langOut is None:
-                return cls.select_case_IE(dictionaries,word,langIn)
-            else:
-                return cls.select_case_IO(dictionaries,word,langIn,langOut)
-
-
-
-
-
-
-
-
 
 
 
 
 
 if __name__ == '__main__':
-
+    
     parser = argparse.ArgumentParser(formatter_class=argparse.RawTextHelpFormatter,
     description='''
         ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
