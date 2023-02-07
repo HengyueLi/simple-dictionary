@@ -36,9 +36,9 @@ import rich
 
 
 
-#  disable warning
-import urllib3
-requests.packages.urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
+# #  disable warning
+# import urllib3
+# requests.packages.urllib3.disable_warnings(category=urllib3.exceptions.InsecureRequestWarning)
 
 
 
@@ -669,7 +669,7 @@ class HuJiang_online(online_dictionary):
             'headers':{
                 'cookie': 'HJ_UID=0f406091-be97-6b64-f1fc-f7b2470883e9; HJ_CST=1; HJ_CSST_3=1;TRACKSITEMAP=3%2C; HJ_SID=393c85c7-abac-f408-6a32-a1f125d7e8c6; _REF=; HJ_SSID_3=4a460f19-c0ae-12a7-8e86-6e360f69ec9b; _SREF_3=; HJ_CMATCH=1',
                 },
-            "verify":False,
+            # "verify":False,
             }
 
     @staticmethod
@@ -928,6 +928,7 @@ if __name__ == '__main__':
     parser.add_argument('-l','--list', nargs='?',help='list all available dictionaries for a given translation-direction, for example -l zh-en',type=str,const="*",required=False)
     parser.add_argument('-C','--config',help="set config file. Format --config section key value",nargs='*',required=False)
     parser.add_argument('-r','--reset',help="delete config file. All setting by default",required=False,action="store_true")
+    parser.add_argument('-S','--SSL_key',help="Use a pem key.",required=False,default=None)
 
     args = vars(parser.parse_args())
     # print(args)
@@ -1010,18 +1011,28 @@ if __name__ == '__main__':
 
 
 
-
+    req_KW = {}
 
     if args['proxy'] is None:
-        ReqObj = Requests()
+        # ReqObj = Requests()
+        pass
     else:
         proxies = {}
         pairs = args['proxy'].split("@")
         for kv in pairs:
             k,v = kv.split("=")
             proxies[k]=v
-        ReqObj = Requests(proxies=proxies)
+        # ReqObj = Requests(proxies=proxies)
+        req_KW['proxies'] = proxies
         logging.debug("use proxy {}".format(proxies))
+    
+
+    if args['SSL_key'] is not None:
+        req_KW['verify'] = args['SSL_key'] 
+
+
+
+    ReqObj = Requests( **req_KW )
 
     word_trans = " ".join([ w.strip() for w in args['Input']])
 
