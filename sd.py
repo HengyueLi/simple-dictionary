@@ -212,15 +212,84 @@ class Requests():
         r = self.get(url,para=para)
         return bs4.BeautifulSoup(r.content, 'html.parser')
 
-    def post(self,url,data={}):
-        return requests.post(url,data=data,**self.reqkwargs)
+    def post(self,url,**kw):
+        kv = {} 
+        for k in self.reqkwargs:
+            kv[k] = self.reqkwargs[k] 
+        for k in kw:
+            kv[k] = kw[k] 
+        return requests.post(url,**kv) 
 
-    def postJson(self,url,data={}):
-        return self.post(url,data).json()
+    def postJson(self,url,**kw):
+        return self.post(url,**kw).json()
+
+
+
+
+
+
+
+class onlineDictionary_general():
+
+    #------------------------------------------
+    @staticmethod
+    def selectionWeight() -> int: return 1
+
+    @staticmethod
+    def getDictionaryName()->str:return "NOT SET"
+
+    @staticmethod
+    def getTranslationDirection() -> list:return ['en','zh']
+
+    def getTranslationOrSuggestion(self,context):
+        return True,'Content' # or False,'Suggestion'
+
+    #------------------------------------------
+
+    def __init__(self,ReqObj,Config=None):
+        self.ReqObj = ReqObj
+        self.Config = Config
+
+    def __isUseCache(self):
+        if self.Config is not None:
+            return self.Config['USE_CACHE']
+        else:
+            return False
+
+
+    def PrintTranslation(self,word):
+        isUseCache = self.__isUseCache()
+        logging.debug('use cache = [{}]'.format(isUseCache))
+        if isUseCache:
+            cache = Cache_dict()
+            cg = cache.get(dictionaryName=self.getDictionaryName(),key=word)
+            if cg is not None:
+                isExist,ConsolePrintTxt = cg
+            else:
+                isExist,ConsolePrintTxt = self.getTranslationOrSuggestion(context=word)
+                cache.set(dictionaryName=self.getDictionaryName(),key=word,val=[isExist,ConsolePrintTxt])
+        else:
+            isExist,ConsolePrintTxt = self.getTranslationOrSuggestion(context=word)
+        #-----
+        console = Console()
+        table = rich.table.Table()
+        FROM,TO = self.getTranslationDirection()
+        if isExist:
+            table.add_column( "[yellow]{}[/yellow]".format(word) + "  [green]{}-{}[/green]   [green]({})[/green]".format(FROM,TO,self.getDictionaryName()))
+        else:
+            table.add_column( "[red]{}[/red]".format(word) + "  is not found by [red]{}-{}[/red] ({}), suggestions: ".format(FROM,TO,self.getDictionaryName()))
+        table.add_row(ConsolePrintTxt.replace('[',"<").replace(']',">"))
+        console.print(table)
+
+
+
+
+
 
 
 
 class online_dictionary():
+    # This basic class is valid for only get-soup
 
     #------------------------------------------
     @staticmethod
@@ -899,6 +968,30 @@ class DICTIONARY_Chinese2German(DICTIONARY_German2Chinese):
 
 
 
+class DICTIONARY_EnglishToChinese_Tencent(onlineDictionary_general):
+
+    #------------------------------------------
+    @staticmethod
+    def selectionWeight() -> int: return 6
+
+    @staticmethod
+    def getDictionaryName()->str:return "Tencent English->Chinese"
+
+    @staticmethod
+    def getTranslationDirection() -> list:
+        return ['en','zh']
+    
+    def getTranslationOrSuggestion(self,context):
+        from sourceAPI.Tencent import OnlineAPI as API 
+        api = API(self.ReqObj) 
+        lanIn,lanOut = self.getTranslationDirection()
+        r = api.getTranseText(lanIn=lanIn,lanOut=lanOut,context=context)
+        if r is not None:
+            return True,r 
+        else:
+            return False,r 
+
+
 
 
 
@@ -979,7 +1072,10 @@ if __name__ == '__main__':
         table.add_column("dictionary", style="dim")
         table.add_column("request URL", style="dim")
         for i,d in enumerate(dList):
-            table.add_row( str(i+1), "{}->{}".format(*d.getTranslationDirection())  , "[green]"+d.getDictionaryName()+"[/green]", d.makeURL("[WORD]") )
+            if hasattr( d , 'makeURL' ):
+                table.add_row( str(i+1), "{}->{}".format(*d.getTranslationDirection())  , "[green]"+d.getDictionaryName()+"[/green]", d.makeURL("[WORD]") )
+            else:
+                table.add_row( str(i+1), "{}->{}".format(*d.getTranslationDirection())  , "[green]"+d.getDictionaryName()+"[/green]", ''  )
         console.print(table)
         sys.exit()
 

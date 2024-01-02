@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ```
 
 ## install the script  
-To keep every as simply as possible, everything is in a single `Python` script: `sd.py`. You can download it as use it directly. Compiling to `bin` file is also under consideration.
+~~To keep every as simply as possible, everything is in a single `Python` script: `sd.py`. You can download it as use it directly~~. Compiling to `bin` file is also under consideration.
 
 # Usage
 
